@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Game of Life</title>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <button id="startBtn">Start</button>
+    <button id="tickBtn">tick</button>
+    <button id="stopBtn">Stop</button>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js';
+    //     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js';
+        // import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/controls/OrbitControls.js';
+        // Initialize the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.shadowMap.enabled = true
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // soft white light
+        console.log('ambientLight')
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.castShadow = true;
+        directionalLight.position.set(20, 20, 20); // position the light above and slightly behind the scene
+        scene.add(directionalLight);
+        // console.log(THREE.OrbitControls)
+        // const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        // controls.enableDamping = true; // Optional: this enables damping (inertia), which can provide a smoother control experience.
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Define the 3D array of booleans
+        const grid = [
+            [[true, false, true], [false, true, false], [true, false, true]],
+            [[false, true, false], [true, false, true], [false, true, false]],
+            [[true, false, true], [false, true, false], [true, false, true]]
+        ];
+
+        // Define cube geometry and material
+        const cubeGeometry = new THREE.BoxGeometry();
+        // const cubeMaterial = new THREE.MeshPhongMaterial({ color: 0x4599dd });
+        const cubeMaterial = new THREE.MeshLambertMaterial({ color: 0x4599dd });
+
+        // Set the camera position
+        camera.position.x = 4;
+        camera.position.y = 4;
+        camera.position.z = 60;
+
+        async function main() {
+            // Adding control to start and stop the game
+            const conwayJs = await import('./pkg/conway3d.js')
+            const { GameOfLife } = conwayJs
+            const res = await fetch('./pkg/conway3d_bg.wasm')
+            
+            conwayJs.initSync(await res.arrayBuffer())
+            const dim = 50
+            const game = GameOfLife.new_rand(dim, dim, dim, 5, 5, 6)
+            // const game = GameOfLife.new_stable2(dim, dim, dim, 4, 5, 6)
+            // console.log(game.width)
+
+
+            let cubes = []
+            for (let x = 0; x < dim; x++) {
+                for (let y = 0; y < dim; y++) {
+                    for (let z = 0; z < dim; z++) {
+                        // if (grid[x][y][z]) {
+                        const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+                        cube.position.set(x - 10 / 2, y - 10 / 2, z - 10 / 2);
+                        cube.castShadow = true;  // Cubes cast shadows
+                        cube.receiveShadow = true;  // Cubes receive shadows
+                        cubes.push(cube)
+                        scene.add(cube);
+                        // }
+                    }
+                }
+            }
+
+            function render(whichVisible) {
+            }
+            function tick() {
+                console.log('rendering')
+                let whichVisible = game.render()
+
+                console.log('changing visibility of cubes', whichVisible.length)
+                for (let i = 0; i < cubes.length; i++) {
+                    cubes[i].visible = whichVisible[i] == 0 ? false : true
+                }
+                game.tick()
+            }
+
+            let gameInterval;
+            document.getElementById('startBtn').addEventListener('click', () => {
+                console.log('starting')
+                if (!gameInterval) {
+                    gameInterval = setInterval(tick, 130); // Update every 100ms
+                }
+            });
+            document.getElementById('tickBtn').addEventListener('click', () => {
+                console.log('tick')
+                tick()
+            });
+            document.getElementById('stopBtn').addEventListener('click', () => {
+                console.log('stop')
+                clearInterval(gameInterval);
+                gameInterval = null;
+            });
+        }
+        main()
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
